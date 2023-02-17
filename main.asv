@@ -49,13 +49,17 @@ subplot(211);plot(f_v,S_v);title('sin')
 %% 混频后滤波
 ss =  signal.*sin_rpt;
 sc =  signal.*cos_rpt;
-
+ 
 %% cic滤波
 %        (1-z^RD)^M
-% H(z) = ————
+% H(z) = ————    *(1/RD)^M
 %        (1-z^-1)^M
-M = 5;
-R = 4000;
+M = 5;     % 级联个数，改变衰减 astop = 13*M dB
+R = 4000;  % 改变滤波后的采样频率 fs2 = fs/R;
 D = 1;
 s_sin_flt = Func_cic(ss,M,R,D);
 s_cos_flt = Func_cic(sc,M,R,D);
+
+%% 反正切
+s_atan = atan(s_sin_flt,s_cos_flt);
+%% 滤波

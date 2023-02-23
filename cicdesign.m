@@ -1,16 +1,24 @@
-%  Design a minimum-order CIC compensator that compensates...
-%  for the droop in the passband for the CIC decimator.
-Fs = 160e6;    % Input sampling frequency
-Fpass = 3.2e6; % Frequency band of interest
-D = 25;        % Decimation factor of CIC
-d1 = fdesign.decimator(D,'CIC',1,Fpass,65,Fs); %design a cic filter
-Hcic = design(d1);
+clear
+clc
+close all
+%%
+fs = 160e6;    % 采样频率
+fpass = 75e5;  % 通带
+fstop = 150e5;
+R = 4;         % 抽取率
+D = 1;         % 差分时延
 
-Hd(1) = cascade(dfilt.scalar(1/gain(Hcic)),Hcic);
-d2 = fdesign.ciccomp(Hcic.DifferentialDelay, ...
-    Hcic.NumberOfSections,Fpass,1.625e6,.005,66,Fs/D); % design a cic compensator filter
-Hd(2) = design(d2);
-fcfwrite([Hcic Hd(2)],'CICdesciption','dec'); % 其中，生成的.fcf文件描述滤波器的结构
-hvt=fvtool(Hd(1),Hd(2),cascade(Hd(1),Hd(2)),'Fs',[Fs Fs/D Fs], ...   % plot whole response
-    'ShowReference', 'off');
-legend(hvt, 'CIC','CIC compensator', 'Whole response','Location', 'Northeast');
+% hcic = design(fdesign.decimator(R,'cic',D,fpass,13,fs),'SystemObject',true);
+Dcic = fdesign.decimator(R,'cic',D,'Fp,Ast',fpass,60,fs);
+hcic = design(Dcic,'SystemObject',true);
+fvtool(hcic);
+
+
+hd = design(fdesign.ciccomp(hcic.DifferentialDelay,hcic.NumSections,...
+fpass,fstop,0.01,100,fs/R),'SystemObject',true);
+fvtool(hd)
+
+fvtool(hcic,hd,cascade(hcic,hd),'ShowReference','off','Fs',[fs fs/R fs])
+legend('CIC Decimator','CIC Compensator','Resulting Cascade Filter');
+
+

@@ -4,11 +4,11 @@ clear;clc;close all
 %% 采集设置
 fs = 160e6;
 ts = 1/fs;
-T = 0.0015;
+T = 0.015;
 t = 0:ts:T-ts;
 len = length(t);
 
-fft_T = 0.001;
+fft_T = 0.01;
 fft_len = fft_T*fs;
 %% 测量信号
 % 激光参数
@@ -17,17 +17,21 @@ lamada = 6328e-10;      % 波长
 mf = 4*pi/lamada;       % 调制指数
 
 % 振动信号参数
-fv = 10e3;                 % 振动频率 Hz
-vm = 0.005;               % 速度幅值 m/s
+fv = 1e3;                 % 振动频率 Hz
+vm = 2e-3;                   % 速度幅值 m/s
 am = vm/2/pi/fv;          % 位移幅值
 v = vm*cos(2*pi*fv*t);
 s = am*sin(2*pi*fv*t);    % 位移信号
 s = s-mean(s);
+
+[S_signal,f_signal] = Func_pufenxi(s(1:fft_len),fs,1);
+figure;
+plot(f_signal,S_signal);title('振动位移信号')
+
 signal = sin(2*pi*fc*t+mf*s);
 
 %% 添加宽带噪声和低频噪声
-signal = awgn(signal,30,'measured');
-
+signal = awgn(signal,3,'measured');
 figure;
 subplot(211);plot(t,v);title('振动速度信号')
 hold on;
@@ -43,23 +47,88 @@ subplot(212);plot(f_signal,S_signal);title('多普勒信号')
 %% 本振信号使用理想采样信号
 sin_rpt = repmat([0 1 0 -1],1,length(signal)/4);
 cos_rpt = repmat([1 0 -1 0],1,length(signal)/4);
-[S_v,f_v] = Func_pufenxi(cos_rpt(1:fft_len),fs,1);
-figure;
-subplot(211);plot(f_v,S_v);title('sin')
+
 %% 混频后滤波
 ss =  signal.*sin_rpt;
 sc =  signal.*cos_rpt;
- 
-%% cic滤波
-%        (1-z^RD)^M
-% H(z) = ————    *(1/RD)^M
-%        (1-z^-1)^M
-M = 5;     % 级联个数，改变衰减 astop = 13*M dB
-R = 4000;  % 改变滤波后的采样频率 fs2 = fs/R;
+
+[S_signal,f_signal] = Func_pufenxi(sc(1:fft_len),fs,1);
+figure
+plot(f_signal,S_signal);title('信号')
+
+%% cic滤波或fir
+fs2 = fv*4;            % 输出采样频率
+fs_cic = 40e3;        % cic后采样频率
+M = 1;                % 级联个数，改变衰减 astop = 13*M dB
+R = fs/fs_cic;        % 滤波后的采样频率;
 D = 1;
-s_sin_flt = Func_cic(ss,M,R,D);
-s_cos_flt = Func_cic(sc,M,R,D);
+v_flg = 1;
+band_flg = 1;
+
+if  v_flg <9 || band_flg<9
+    s_sin_flt = Func_cic(ss,M,R,D);
+    s_cos_flt = Func_cic(sc,M,R,D);
+else
+    Num = GetLowFilterCoef(fs,38e6,40e6,0.1,100,20); % 38e6,40e6
+    s_sin_flt = filter(Num,1,ss);
+    s_cos_flt = filter(Num,1,sc);
+end
+
+[S_signal,f_signal] = Func_pufenxi(s_cos_flt(end-fft_len/R+1:end),fs/R,1);
+figure
+plot(f_signal,S_signal);title('滤波后调制信号')
 
 %% 反正切
 s_atan = atan2(s_sin_flt,s_cos_flt);
-%% 滤波
+s2 = jiechanpi(s_atan)/mf;
+%% 滤波 fs = 40k,80k,400k,800k,4M,8M,40M,80M,160M
+Num_01 = GetLowFilterCoef(40,1,2,0.01,100,20);    % = 80 2 4
+Num_02 = GetLowFilterCoef(80,5,10,0.01,100,20);   % = 160 10 20
+Num_03 = GetLowFilterCoef(160,20,40,0.01,100,20); % = 40 5 8
+Num_04 = GetLowFilterCoef(160,30,40,0.01,100,20);
+s3 = filter(Num_01,1,s2);
+% s3 = s2;
+
+%% 位移
+if R == 1
+    down = fs/fs2;
+    s_out2 = s3(1:down:end);
+    s_out = s_out2(end-fft_len/down+1:end);
+    s_out = s_out - mean(s_out);
+    [S_signal,f_signal] = Func_pufenxi(s_out,fs/down,1);
+    figure
+    plot(s_out);
+    figure;
+    plot(f_signal,S_signal);title('解调振动位移信号')   
+    %% 速度
+    v2 = diff(s3)*fs;
+    v2 = v2(1:down:end);
+    v_out = v2(end-fft_len/down+1:end);
+    [S_signal,f_signal] = Func_pufenxi(v_out,fs/down,1);
+    figure
+    plot(v_out);title('解调振动速度信号')
+    
+    figure;
+    plot(f_signal,S_signal);title('解调振动速度信号')   
+else
+    down = fs/R/fs2;
+    s_out2 = s3(1:down:end);
+    s_out = s_out2(end-fft_len/R/down+1:end);
+    s_out = s_out - mean(s_out);
+    [S_signal,f_signal] = Func_pufenxi(s_out,fs/R/down,1);
+    figure
+    plot(s_out);title('解调振动位移信号')  
+    figure;
+    plot(f_signal,S_signal);title('解调振动位移信号')   
+    %% 速度 
+    v2 = diff(s3)*fs/R;
+    down = fs/R/fs2;
+    v2 = v2(1:down:end);
+    v_out = v2(end-fft_len/R/down+1:end);
+    [S_signal,f_signal] = Func_pufenxi(v_out,fs/R/down,1);
+    figure
+    plot(v_out);title('解调振动速度信号')
+    
+    figure;
+    plot(f_signal,S_signal);title('解调振动速度信号')
+end

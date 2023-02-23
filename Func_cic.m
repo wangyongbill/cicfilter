@@ -4,33 +4,34 @@ Len = length(signal);       % 输入数据长度
 MIntgrat = zeros(1,M);       % M级积分寄存器
 MDiff = zeros(1,M);
 IntgratOut = zeros(1,Len);  % 积分输出
-DiffOut = zeros(1,Len/R);   % 差分输出
-%% M级积分器
+DiffOut = zeros(1,Len);   % 差分输出
+%% M级积分器，积分后位数展宽，
+%  根据公式计算积分后的位数Bout = Bin-1+M*log2(R*D)
+flg = 0;
 for i = 1:Len
-    sumtemp = signal(i);
+    indata = signal(i);
     for j = 1:M
-        MIntgrat(j) = MIntgrat(j)+sumtemp;
-        sumtemp = MIntgrat(j);
+        tmp = MIntgrat(j);
+        MIntgrat(j) = indata + MIntgrat(j);
+        indata = tmp;
     end
-    IntgratOut(i) = sumtemp;
+    IntgratOut(i) = MIntgrat(M);
+end
+%% 梳状滤波器 实现R抽取与D差分
+% 抽取
+DiffIn = IntgratOut(1:R:end);
+for i = 1:length(DiffIn)
+    difftemp = DiffIn(i);
+    for j = 1:M
+        difftemp2 = difftemp - MDiff(j);  % D = R差分时延等于抽取倍率
+        MDiff(j) = difftemp;
+        difftemp = difftemp2;
+    end
+    flg = flg+1;
+    DiffOut(flg) = difftemp2;
 end
 
-%% 梳状滤波器 实现R抽取与D差分
-flg = 0;    % 输出数据个数标记
-for i = 1:Len 
-    % 抽取
-    if mod(i,R)==1
-        difftemp = IntgratOut(i);
-        for j = 1:M           
-            difftemp2 = difftemp - MDiff(j);  % D = R差分时延等于抽取倍率
-            MDiff(j) = difftemp;
-            difftemp = difftemp2;
-        end
-        flg = flg+1;
-        DiffOut(flg) = difftemp;         
-    end
-end
-out = DiffOut;
+out = DiffOut(1:flg);
 %%
 % N = length(signal);% 数据点数
 %

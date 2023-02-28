@@ -33,7 +33,7 @@ plot(f_signal,S_signal);title('振动位移信号')
 signal = sin(2*pi*fc*t+mf*s);
 
 %% 添加宽带噪声和低频噪声
-signal = awgn(signal,60,'measured');
+signal = awgn(signal,30,'measured');
 figure;
 subplot(211);plot(t,v);title('振动速度信号')
 hold on;
@@ -60,7 +60,7 @@ plot(f_signal,S_signal);title('信号')
 
 %% cic滤波或fir
 fs2 = fv*4;            % 输出采样频率
-fs_cic = fv*20;         % cic后采样频率
+fs_cic = fv*16;         % cic后采样频率
 M = 5;                 % 级联个数，改变衰减 astop = 13*M dB
 R = fs/fs_cic;         % 滤波后的采样频率;
 D = 1;
@@ -70,10 +70,10 @@ band_flg = 1;
 if  v_flg <9 || band_flg<9
     s_sin_cic = Func_cic(ss,M,R,D);
     s_cos_cic = Func_cic(sc,M,R,D);
-    Fpass = 5e3;
-    Fstop = 7.5e3;
-    Aps = 0.001;
-    Asp = 100;
+    Fpass = 2.4e3;
+    Fstop = 4e3;
+    Aps = 0.01;
+    Asp = 80;
     K = M;
     Rate = R;
     Delay = D;
@@ -95,7 +95,7 @@ plot(f_signal,S_signal);title('滤波后调制信号')
 s_atan = atan2(s_sin_flt,s_cos_flt);
 s2 = jiechanpi(s_atan)/mf;
 %% 滤波 fs = 40k,80k,400k,800k,4M,8M,40M,80M,160M
-Num_01 = GetLowFilterCoef(20,1,2,0.001,90,20);    % = 80 2 4
+Num_01 = GetLowFilterCoef(16,1,2,0.01,80,20);    % = 80 2 4
 Num_02 = GetLowFilterCoef(80,5,10,0.01,100,20);   % = 160 10 20
 Num_03 = GetLowFilterCoef(160,20,40,0.01,100,20); % = 40 5 8
 Num_04 = GetLowFilterCoef(160,30,40,0.01,100,20);

@@ -15,7 +15,7 @@ fvtool(hcic);
 
 
 hd = design(fdesign.ciccomp(hcic.DifferentialDelay,hcic.NumSections,...
-fpass,fstop,0.01,100,fs/R),'SystemObject',true);
+fpass,fstop,0.001,100,fs/R),'SystemObject',true);
 fvtool(hd)
 
 fvtool(hcic,hd,cascade(hcic,hd),'ShowReference','off','Fs',[fs fs/R fs])
